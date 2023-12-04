@@ -1,6 +1,6 @@
 from flask import render_template, url_for, flash, redirect
-from flask_login import login_user, current_user, logout_user
-from flaskblog.forms import RegistrationForm, LoginForm
+from flask_login import login_user, current_user, logout_user, login_required
+from flaskblog.forms import RegistrationForm, LoginForm, UpdateAccountForm
 from flaskblog.models import User, Post
 from flaskblog import app, bcrypt, db
 
@@ -25,7 +25,23 @@ def home():
 
 @app.route('/about')
 def about():
-    return render_template('about.html')
+    return render_template('about.html', title='About')
+
+@app.route('/account', methods=['GET', 'POST'])
+@login_required
+def account():
+    form = UpdateAccountForm()
+    if form.validate_on_submit():  # update username and email
+        # apparently app.app_context() not needed here, although it wont work for me, with or without app.app_context
+        current_user.username = form.username.data
+        current_user.email = form.email.data
+        db.session.commit()
+        flash('Your account details have been updated', 'success')
+        return redirect(url_for('account'))
+
+    image_file = url_for('static', filename=f'profile_pics/{current_user.image_file}')
+    return render_template('account.html', title='Account', image_file=image_file, form=form)
+
 
 @app.route("/register", methods=['GET', 'POST'])
 def register():
