@@ -53,10 +53,8 @@ def register():
         # only save encrypted passwords to database
         hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
         user = User(username=form.username.data, email=form.email.data, password=hashed_password)
-        with app.app_context():
-            db.session.add(user)
-            db.session.commit()
-
+        db.session.add(user)
+        db.session.commit()
         flash(f'Account created for {form.username.data}!', 'success')
         return redirect(url_for('login'))
     return render_template('register.html', title='Register', form=form)
@@ -70,9 +68,8 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         # the fields meet the minimum requirements, lets check do the details match any users in our db
-        # check if that email exists
-        with app.app_context():
-            existing_user = User.query.filter_by(email=form.email.data).first()
+        # check if that email exists, note we dont need app.app_context from within flask
+        existing_user = User.query.filter_by(email=form.email.data).first()
         if existing_user: # is that email in our system?
             if bcrypt.check_password_hash(existing_user.password, form.password.data): # is password correct
                 # success, log them in

@@ -2,11 +2,10 @@ from flaskblog import app, db, login_manager  # import from __init__.py file
 from datetime import datetime
 from flask_login import UserMixin
 
-
 @login_manager.user_loader
 def load_user(user_id):
-    with app.app_context():
-        loaded_user = User.query.get(int(user_id))
+    # dont need app.app_context() from within flask
+    loaded_user = User.query.get(int(user_id))
     return loaded_user
 
 
