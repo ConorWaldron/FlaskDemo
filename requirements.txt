@@ -1,6 +1,6 @@
+email_validator
 flask
 flask_bcrypt
 flask_wtf
 flask_login
 flask_sqlalchemy
-email_validator

@@ -22,28 +22,13 @@ example_blogs = [
 @app.route('/home')
 def home():
     #read posts from database, note we dont need to use app.app_contex() as we are in Flask
-    all_posts = Post.query.all()
-    return render_template('home.html', posts=all_posts, title="Conor's Flask App")
+    page = request.args.get('page', 1, type=int)
+    posts = Post.query.order_by(Post.date_posted.desc()).paginate(page=page, per_page=5)
+    return render_template('home.html', posts=posts, title="Conor's Flask App")
 
 @app.route('/about')
 def about():
     return render_template('about.html', title='About')
-
-@app.route('/account', methods=['GET', 'POST'])
-@login_required
-def account():
-    form = UpdateAccountForm()
-    if form.validate_on_submit():  # update username and email
-        # apparently app.app_context() not needed here, although it wont work for me, with or without app.app_context
-        current_user.username = form.username.data
-        current_user.email = form.email.data
-        db.session.commit()
-        flash('Your account details have been updated', 'success')
-        return redirect(url_for('account'))
-
-    image_file = url_for('static', filename=f'profile_pics/{current_user.image_file}')
-    return render_template('account.html', title='Account', image_file=image_file, form=form)
-
 
 @app.route("/register", methods=['GET', 'POST'])
 def register():
@@ -60,7 +45,6 @@ def register():
         flash(f'Account created for {form.username.data}!', 'success')
         return redirect(url_for('login'))
     return render_template('register.html', title='Register', form=form)
-
 
 @app.route("/login", methods=['GET', 'POST'])
 def login():
@@ -90,6 +74,21 @@ def logout():
     logout_user()
     flash('Successfuly logged out', 'success')
     return redirect(url_for('home'))
+
+@app.route('/account', methods=['GET', 'POST'])
+@login_required
+def account():
+    form = UpdateAccountForm()
+    if form.validate_on_submit():  # update username and email
+        # apparently app.app_context() not needed here, although it wont work for me, with or without app.app_context
+        current_user.username = form.username.data
+        current_user.email = form.email.data
+        db.session.commit()
+        flash('Your account details have been updated', 'success')
+        return redirect(url_for('account'))
+
+    image_file = url_for('static', filename=f'profile_pics/{current_user.image_file}')
+    return render_template('account.html', title='Account', image_file=image_file, form=form)
 
 
 @app.route("/post/new", methods=['GET', 'POST'])
@@ -150,3 +149,13 @@ def delete_post(post_id):
         db.session.commit()
         flash('Your post was successfully deleted', 'success')
         return redirect(url_for('home', post_id=this_post.id))
+
+@app.route("/user/<string:username>")
+def user_posts(username):
+    page = request.args.get('page', 1, type=int)
+    user = User.query.filter_by(username=username).first_or_404()
+    posts = Post.query.filter_by(author=user)\
+        .order_by(Post.date_posted.desc())\
+        .paginate(page=page, per_page=5)
+    return render_template('user_posts.html', posts=posts, user=user)
+
