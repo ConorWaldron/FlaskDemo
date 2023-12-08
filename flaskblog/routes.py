@@ -1,12 +1,11 @@
-from flask import render_template, url_for, flash, redirect
+from flask import render_template, url_for, flash, redirect, abort, request
 from flask_login import login_user, current_user, logout_user, login_required
-from flaskblog.forms import RegistrationForm, LoginForm, UpdateAccountForm
+from flaskblog.forms import RegistrationForm, LoginForm, UpdateAccountForm, PostForm
 from flaskblog.models import User, Post
 from flaskblog import app, bcrypt, db
 
-
+"""
 # dummy data to demonstrate Jinja in HTML templates
-title_string = "Conor's Flask App"
 example_blogs = [
     {'author': "Conor Waldron",
      'title': 'How to build a tennis dash app',
@@ -17,11 +16,14 @@ example_blogs = [
      'content': 'Functional Programming is like making a tirimisu...',
      'date_posted': '16th Feb 2022'},
 ]
+"""
 
 @app.route('/')
 @app.route('/home')
 def home():
-    return render_template('home.html', posts=example_blogs, title=title_string)
+    #read posts from database, note we dont need to use app.app_contex() as we are in Flask
+    all_posts = Post.query.all()
+    return render_template('home.html', posts=all_posts, title="Conor's Flask App")
 
 @app.route('/about')
 def about():
@@ -88,3 +90,63 @@ def logout():
     logout_user()
     flash('Successfuly logged out', 'success')
     return redirect(url_for('home'))
+
+
+@app.route("/post/new", methods=['GET', 'POST'])
+@login_required
+def new_post():
+    form = PostForm()
+    if form.validate_on_submit():
+        a_new_post=Post(title=form.title.data, content=form.post_content.data, author=current_user)
+        db.session.add(a_new_post)
+        db.session.commit()
+        flash('Post successfully published!', 'success')
+        return redirect(url_for('home'))
+    return render_template('create_edit_post.html', title='New Post', form=form,
+                           heading_title='Create Post')
+
+# the <int:variable_name> syntax enforces the variable to be an int
+@app.route("/post/<int:post_id>")
+def post(post_id):
+    this_post = Post.query.get_or_404(post_id)
+    # below we are passing in key value pairs as arguments to be used in the HTML
+    return render_template('post.html', title=this_post.title, post=this_post)
+
+@app.route("/post/<int:post_id>/update", methods=['GET', 'POST'])
+@login_required
+def update_post(post_id):
+    this_post = Post.query.get_or_404(post_id)
+    # check that only the author of the post can update the post
+    if this_post.author != current_user:
+        abort(403)
+
+    form = PostForm()
+    if request.method == 'GET':
+        # auto populate form with existing data
+        form.title.data = this_post.title
+        form.post_content.data = this_post.content
+    elif request.method == 'POST':
+        # update database
+        if form.validate_on_submit():
+            this_post.title = form.title.data
+            this_post.content = form.post_content.data
+            db.session.commit() # note we dont need an add as the data is already there
+            flash('Your post was successfully updated', 'success')
+            return redirect(url_for('post', post_id=this_post.id))
+
+    return render_template('create_edit_post.html', title='Edit Post', form=form,
+                           heading_title='Update Post')
+
+@app.route("/post/<int:post_id>/delete")
+@login_required
+def delete_post(post_id):
+    this_post = Post.query.get_or_404(post_id)
+    # check that only the author of the post can delete the post
+    if this_post.author != current_user:
+        abort(403)
+    else:
+        # delete post
+        db.session.delete(this_post)
+        db.session.commit()
+        flash('Your post was successfully deleted', 'success')
+        return redirect(url_for('home', post_id=this_post.id))
